@@ -12,6 +12,8 @@ src/thingProperties.h
 
 # Logs
 *.log
+*.txt
+*log*
 
 # Arquivos temporários
 *.tmp
