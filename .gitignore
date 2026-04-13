@@ -1,0 +1,21 @@
+# Build (PlatformIO)
+.pio/
+
+# VSCode
+.vscode/
+
+# Credenciais (NUNCA subir)
+src/secrets.h
+
+# Arduino Cloud (gerado automaticamente)
+src/thingProperties.h
+
+# Logs
+*.log
+
+# Arquivos temporários
+*.tmp
+*.bak
+
+# Mac / Linux lixo
+.DS_Store
