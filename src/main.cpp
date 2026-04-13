@@ -360,7 +360,7 @@ void executarAtualizacao(const String& versao, const String& chat_id) {
 
   switch (ret) {
     case HTTP_UPDATE_FAILED:
-      bot.sendMessage(chat_id, "❌ OTA falhou: " + String(httpUpdate.getLastError()) + " - " + String(httpUpdate.getLastErrorString().c_str()), "");
+      bot.sendMessage(chat_id, "❌ Falha na atualização OTA: " + String(httpUpdate.getLastError()) + " - " + String(httpUpdate.getLastErrorString().c_str()) + ". Tente novamente mais tarde.", "");
       Serial.printf("OTA falhou: %d - %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
       break;
     case HTTP_UPDATE_NO_UPDATES:
@@ -368,6 +368,7 @@ void executarAtualizacao(const String& versao, const String& chat_id) {
       Serial.println("Nenhuma atualização disponível.");
       break;
     case HTTP_UPDATE_OK:
+      bot.sendMessage(chat_id, "✅ Atualização concluída com sucesso! Reiniciando o dispositivo...", "");
       Serial.println("OTA concluído com sucesso. Reiniciando...");
       break;
   }
