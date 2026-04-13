@@ -29,6 +29,9 @@ String versaoDisponivel = "";
 bool buzzerManual = false;
 bool buzzerLigadoManual = false;
 
+long ultimoUpdateIdProcessado = -1;
+bool reiniciando = false;
+
 // ================= PINOS =================
 const int VermelhoLed = 18;
 const int VerdeLed = 26;
@@ -53,6 +56,10 @@ const long intervaloOTA = 3600000; // Verifica atualizacao a cada 1 hora
 
 unsigned long tempoWiFiReconnect = 0;
 const long intervaloWiFiReconnect = 30000;
+
+unsigned long tempoBoot = 0;
+const unsigned long intervaloIgnorarRestartAposBoot = 10000;
+bool telegramPendentesLimpos = false;
 
 const char* GITHUB_VERSION_URL = "https://raw.githubusercontent.com/joellaranjeira/ReefControlPlatformIO/main/version.txt";
 const char* GITHUB_FIRMWARE_URL = "https://raw.githubusercontent.com/joellaranjeira/ReefControlPlatformIO/main/firmware.bin";
@@ -286,7 +293,7 @@ void iniciarServidorWeb() {
 String getVersaoRemota() {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi não conectado para checar versão remota.");
-    return "";
+    return "ERROR: WiFi desconectado";
   }
 
   HTTPClient http;
@@ -300,6 +307,7 @@ String getVersaoRemota() {
     Serial.println("Versão remota encontrada: " + versao);
   } else {
     Serial.printf("Erro HTTP ao buscar versão remota: %d\n", httpCode);
+    versao = "ERROR: HTTP " + String(httpCode);
   }
 
   http.end();
@@ -367,7 +375,8 @@ void executarAtualizacao(const String& versao, const String& chat_id) {
 
 void verificarAtualizacao() {
   String versaoRemota = getVersaoRemota();
-  if (versaoRemota.length() == 0) {
+  if (versaoRemota.length() == 0 || versaoRemota.startsWith("ERROR:")) {
+    Serial.println("Erro ao verificar versão remota: " + versaoRemota);
     return;
   }
 
@@ -392,6 +401,17 @@ void verificarAtualizacao() {
 void processarMensagem(int index) {
   String texto = bot.messages[index].text;
   String chat_id = bot.messages[index].chat_id;
+  long update_id = bot.messages[index].update_id;
+  int message_id = bot.messages[index].message_id;
+
+  Serial.printf("Telegram update_id=%ld type=%s text=%s\n", update_id, bot.messages[index].type.c_str(), texto.c_str());
+
+  // Evita reprocessar o mesmo update do Telegram
+  if (update_id <= ultimoUpdateIdProcessado) {
+    Serial.println("Update já processado, pulando.");
+    return;
+  }
+  ultimoUpdateIdProcessado = update_id;
 
   if (bot.messages[index].type == "callback_query") {
     String callbackQueryId = bot.messages[index].query_id;
@@ -432,8 +452,12 @@ void processarMensagem(int index) {
     bot.sendMessage(chat_id, "🤖 Buzzer em modo automático", "");
   } else if (texto == "/update") {
     String versaoRemota = getVersaoRemota();
-    if (versaoRemota.length() == 0) {
-      bot.sendMessage(chat_id, "⚠️ Não foi possível verificar a versão remota.", "");
+    if (versaoRemota.length() == 0 || versaoRemota.startsWith("ERROR:")) {
+      String erroMsg = "⚠️ Não foi possível verificar a versão remota.";
+      if (versaoRemota.startsWith("ERROR:")) {
+        erroMsg += " (" + versaoRemota.substring(7) + ")";
+      }
+      bot.sendMessage(chat_id, erroMsg, "");
       return;
     }
     if (versaoRemotaMaior(FW_VERSION, versaoRemota)) {
@@ -458,7 +482,7 @@ void processarMensagem(int index) {
     String versaoRemota = getVersaoRemota();
     String msg = "📋 Informações de Versão\n\n";
     msg += "Versão atual: " + String(FW_VERSION) + "\n";
-    if (versaoRemota.length() > 0) {
+    if (versaoRemota.length() > 0 && !versaoRemota.startsWith("ERROR:")) {
       msg += "Versão remota: " + versaoRemota + "\n";
       if (versaoRemotaMaior(FW_VERSION, versaoRemota)) {
         msg += "🔄 Atualização disponível!";
@@ -466,9 +490,21 @@ void processarMensagem(int index) {
         msg += "✅ Firmware atualizado.";
       }
     } else {
-      msg += "Versão remota: Não disponível (verifique WiFi)";
+      String erro = versaoRemota.startsWith("ERROR:") ? versaoRemota.substring(7) : "WiFi desconectado";
+      msg += "Versão remota: Não disponível (" + erro + ")";
     }
     bot.sendMessage(chat_id, msg, "");
+  } else if (texto == "/restart" && !reiniciando) {
+    if (millis() - tempoBoot < intervaloIgnorarRestartAposBoot) {
+      bot.sendMessage(chat_id, "Ignorando comando /restart logo após o reboot. Tente novamente em alguns segundos.", "");
+      Serial.println("Ignorado /restart logo após boot para evitar loop de reinício.");
+      return;
+    }
+    reiniciando = true;
+    bot.sendMessage(chat_id, "Reiniciando em 3 segundos...", "");
+    bot.sendMessage(chat_id, "Restart efetuado com sucesso. Temperatura atual: " + String(ultimaTemperatura) + " °C", "");
+    delay(3000);
+    ESP.restart();
   } else if (texto == "/help" || texto == "/start") {
     String help = "🤖 ReefPlusBot - Controle do Aquário\n\n";
     help += "📊 Monitoramento:\n";
@@ -483,6 +519,8 @@ void processarMensagem(int index) {
     help += "/update - Verificar e atualizar firmware\n";
     help += "/cancel - Cancelar atualização pendente\n";
     help += "/version - Ver versões atual e remota\n\n";
+    help += "⚙️ Sistema:\n";
+    help += "/restart - Reiniciar ESP32\n\n";
     help += "/help - Mostrar esta ajuda";
     bot.sendMessage(chat_id, help, "");
   }
@@ -491,6 +529,7 @@ void processarMensagem(int index) {
 void setup() {
   Serial.begin(9600);
   delay(1500);
+  tempoBoot = millis();
 
   pinMode(VerdeLed, OUTPUT);
   pinMode(VermelhoLed, OUTPUT);
@@ -524,6 +563,12 @@ void loop() {
     tempoTelegram = agora;
 
     if (WiFi.status() == WL_CONNECTED) {
+      if (!telegramPendentesLimpos) {
+        int numPendentes = bot.getUpdates(0);
+        telegramPendentesLimpos = true;
+        Serial.printf("Telegram: limpei %d updates pendentes no boot\n", numPendentes);
+      }
+
       int numMensagens = bot.getUpdates(bot.last_message_received + 1);
       for (int i = 0; i < numMensagens; i++) {
         processarMensagem(i);
