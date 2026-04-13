@@ -162,25 +162,25 @@ void loop() {
     float temp = sensors.getTempCByIndex(0);
 
     if (temp == DEVICE_DISCONNECTED_C) {
-      Serial.println("Erro no sensor!");
-      return;
-    }
-
-    ultimaTemperatura = temp;
-    temAq = round(temp * 10) / 10.0;
-
-    Serial.print("Temperatura: ");
-    Serial.println(temp);
-
-    bool alarme = temp > 28;
-
-    controlarLED(alarme);
-    controlarBuzzer(alarme);
-
-    if (alarme) {
-      enviarAlerta(temp);
+      Serial.println("Erro no sensor! Verifique conexão.");
+      // Não retorna, continua o loop para não travar
     } else {
-      alertaEnviado = false;
+      ultimaTemperatura = temp;
+      temAq = round(temp * 10) / 10.0;
+
+      Serial.print("Temperatura: ");
+      Serial.println(temp);
+
+      bool alarme = temp > 28;
+
+      controlarLED(alarme);
+      controlarBuzzer(alarme);
+
+      if (alarme) {
+        enviarAlerta(temp);
+      } else {
+        alertaEnviado = false;
+      }
     }
   }
 
@@ -188,15 +188,19 @@ void loop() {
   if (millis() - tempoTelegram > intervaloTelegram) {
     tempoTelegram = millis();
 
-    int numMensagens = bot.getUpdates(bot.last_message_received + 1);
+    if (WiFi.status() == WL_CONNECTED) {
+      int numMensagens = bot.getUpdates(bot.last_message_received + 1);
 
-    while (numMensagens) {
       for (int i = 0; i < numMensagens; i++) {
         processarComando(bot.messages[i].text, bot.messages[i].chat_id);
       }
-      numMensagens = bot.getUpdates(bot.last_message_received + 1);
+    } else {
+      Serial.println("WiFi desconectado, pulando Telegram.");
     }
   }
+
+  // Alimenta o watchdog do ESP32
+  yield();
 }
 
 // ================= IOT CLOUD =================
