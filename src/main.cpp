@@ -9,7 +9,7 @@
 #include <HTTPUpdate.h>
 #include <UniversalTelegramBot.h>
 
-#define FW_VERSION "1.1.1"
+#define FW_VERSION "1.1.2"
 #define MAX_HISTORY 720
 
 // ================= TELEGRAM =================
@@ -356,7 +356,12 @@ void executarAtualizacao(const String& versao, const String& chat_id) {
   }
 
   bot.sendMessage(chat_id, "🔄 Iniciando atualização OTA para a versão " + versao + "... Aguarde.", "");
+  Serial.println("Iniciando OTA update...");
+  Serial.printf("URL do firmware: %s\n", GITHUB_FIRMWARE_URL);
+
   t_httpUpdate_return ret = httpUpdate.update(client, GITHUB_FIRMWARE_URL);
+
+  Serial.printf("Resultado do OTA: %d\n", ret);
 
   switch (ret) {
     case HTTP_UPDATE_FAILED:
@@ -370,6 +375,10 @@ void executarAtualizacao(const String& versao, const String& chat_id) {
     case HTTP_UPDATE_OK:
       bot.sendMessage(chat_id, "✅ Atualização concluída com sucesso! Reiniciando o dispositivo...", "");
       Serial.println("OTA concluído com sucesso. Reiniciando...");
+      break;
+    default:
+      bot.sendMessage(chat_id, "❓ Status desconhecido da atualização: " + String(ret), "");
+      Serial.printf("Status OTA desconhecido: %d\n", ret);
       break;
   }
 }
@@ -507,28 +516,34 @@ void processarMensagem(int index) {
     delay(3000);
     ESP.restart();
   } else if (texto == "/help" || texto == "/start") {
-    String help = "🤖 ReefPlusBot - Controle do Aquário\n\n";
-    help += "📊 Monitoramento:\n";
-    help += "/temp - Temperatura atual\n";
-    help += "/status - Status geral (Normal/Alerta)\n";
-    help += "/led - LED ativo (Verde/Vermelho)\n\n";
-    help += "🔊 Buzzer:\n";
-    help += "/buzzer on - Ligar buzzer manualmente\n";
-    help += "/buzzer off - Desligar buzzer manualmente\n";
-    help += "/buzzer auto - Modo automático\n\n";
-    help += "🔄 Atualização:\n";
-    help += "/update - Verificar e atualizar firmware\n";
-    help += "/cancel - Cancelar atualização pendente\n";
-    help += "/version - Ver versões atual e remota\n\n";
-    help += "⚙️ Sistema:\n";
-    help += "/restart - Reiniciar ESP32\n\n";
-    help += "/help - Mostrar esta ajuda";
-    bot.sendMessage(chat_id, help, "");
+    String help1 = "🤖 *ReefPlusBot - Controle do Aquário*\n\n";
+    help1 += "📊 *Monitoramento:*\n";
+    help1 += "/temp - Temperatura atual\n";
+    help1 += "/status - Status geral (Normal/Alerta)\n";
+    help1 += "/led - LED ativo (Verde/Vermelho)\n";
+    bot.sendMessage(chat_id, help1, "Markdown");
+
+    String help2 = "🔊 *Buzzer:*\n";
+    help2 += "/buzzer on - Ligar buzzer manualmente\n";
+    help2 += "/buzzer off - Desligar buzzer manualmente\n";
+    help2 += "/buzzer auto - Modo automático\n";
+    bot.sendMessage(chat_id, help2, "Markdown");
+
+    String help3 = "🔄 *Atualização:*\n";
+    help3 += "/update - Verificar e atualizar firmware\n";
+    help3 += "/cancel - Cancelar atualização pendente\n";
+    help3 += "/version - Ver versões atual e remota\n";
+    bot.sendMessage(chat_id, help3, "Markdown");
+
+    String help4 = "⚙️ *Sistema:*\n";
+    help4 += "/restart - Reiniciar ESP32\n";
+    help4 += "/help - Mostrar esta ajuda\n";
+    bot.sendMessage(chat_id, help4, "Markdown");
   }
 }
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   delay(1500);
   tempoBoot = millis();
 
