@@ -9,7 +9,7 @@
 #include <HTTPUpdate.h>
 #include <UniversalTelegramBot.h>
 
-#define FW_VERSION "1.1.2"
+#define FW_VERSION "1.1.3"
 #define MAX_HISTORY 720
 
 // ================= TELEGRAM =================
@@ -349,38 +349,77 @@ bool versaoRemotaMaior(const String& local, const String& remota) {
   return false;
 }
 
+#include <Update.h>
+
 void executarAtualizacao(const String& versao, const String& chat_id) {
   if (WiFi.status() != WL_CONNECTED) {
     bot.sendMessage(chat_id, "⚠️ WiFi não conectado. Não é possível atualizar agora.", "");
     return;
   }
 
-  bot.sendMessage(chat_id, "🔄 Iniciando atualização OTA para a versão " + versao + "... Aguarde.", "");
-  Serial.println("Iniciando OTA update...");
-  Serial.printf("URL do firmware: %s\n", GITHUB_FIRMWARE_URL);
+  bot.sendMessage(chat_id, "🔄 Iniciando atualização OTA para a versão " + versao + "...", "");
+  Serial.println("Iniciando OTA manual...");
 
-  t_httpUpdate_return ret = httpUpdate.update(client, GITHUB_FIRMWARE_URL);
+  WiFiClientSecure client;
+  client.setInsecure();
 
-  Serial.printf("Resultado do OTA: %d\n", ret);
+  HTTPClient http;
+  http.begin(client, GITHUB_FIRMWARE_URL);
 
-  switch (ret) {
-    case HTTP_UPDATE_FAILED:
-      bot.sendMessage(chat_id, "❌ Falha na atualização OTA: " + String(httpUpdate.getLastError()) + " - " + String(httpUpdate.getLastErrorString().c_str()) + ". Tente novamente mais tarde.", "");
-      Serial.printf("OTA falhou: %d - %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
-      break;
-    case HTTP_UPDATE_NO_UPDATES:
-      bot.sendMessage(chat_id, "✅ Nenhuma atualização encontrada no servidor.", "");
-      Serial.println("Nenhuma atualização disponível.");
-      break;
-    case HTTP_UPDATE_OK:
-      bot.sendMessage(chat_id, "✅ Atualização concluída com sucesso! Reiniciando o dispositivo...", "");
-      Serial.println("OTA concluído com sucesso. Reiniciando...");
-      break;
-    default:
-      bot.sendMessage(chat_id, "❓ Status desconhecido da atualização: " + String(ret), "");
-      Serial.printf("Status OTA desconhecido: %d\n", ret);
-      break;
+  int httpCode = http.GET();
+  Serial.printf("HTTP Code: %d\n", httpCode);
+
+  if (httpCode != HTTP_CODE_OK) {
+    bot.sendMessage(chat_id, "❌ Falha ao baixar firmware. HTTP Code: " + String(httpCode), "");
+    http.end();
+    return;
   }
+
+  int contentLength = http.getSize();
+  Serial.printf("Tamanho do firmware: %d bytes\n", contentLength);
+
+  if (contentLength <= 0) {
+    bot.sendMessage(chat_id, "❌ Tamanho inválido do firmware.", "");
+    http.end();
+    return;
+  }
+
+  WiFiClient * stream = http.getStreamPtr();
+
+  if (!Update.begin(contentLength)) {
+    bot.sendMessage(chat_id, "❌ Não há espaço suficiente para OTA.", "");
+    http.end();
+    return;
+  }
+
+  size_t written = Update.writeStream(*stream);
+  Serial.printf("Bytes escritos: %d\n", written);
+
+  if (written != contentLength) {
+    bot.sendMessage(chat_id, "❌ Falha na escrita do firmware.", "");
+    http.end();
+    return;
+  }
+
+  if (!Update.end()) {
+    bot.sendMessage(chat_id, "❌ Erro ao finalizar OTA.", "");
+    Serial.println(Update.getError());
+    http.end();
+    return;
+  }
+
+  if (!Update.isFinished()) {
+    bot.sendMessage(chat_id, "❌ OTA não finalizada corretamente.", "");
+    http.end();
+    return;
+  }
+
+  bot.sendMessage(chat_id, "✅ Atualização concluída! Reiniciando...", "");
+  Serial.println("OTA finalizado com sucesso!");
+
+  http.end();
+  delay(2000);
+  ESP.restart();
 }
 
 void verificarAtualizacao() {
