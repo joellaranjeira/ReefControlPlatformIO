@@ -3,7 +3,7 @@
 #include "secrets.h"
 #include <Arduino.h>
 
-#define FW_VERSION "1.2.3"
+#define FW_VERSION "1.2.4"
 #define MAX_HISTORY 720
 
 #define BOT_TOKEN SECRET_BOT_TOKEN

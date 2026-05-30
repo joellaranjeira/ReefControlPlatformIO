@@ -36,21 +36,29 @@ static String generateDashboardHtml() {
       if (temp > maxTemp) maxTemp = temp;
     }
 
-    if (minTemp == maxTemp) {
-      minTemp -= 1.0;
-      maxTemp += 1.0;
-    }
+    float dataMinTemp = minTemp;
+    float dataMaxTemp = maxTemp;
+    float padding = (maxTemp - minTemp) * 0.15;
+    if (padding < 0.5) padding = 0.5;
+    minTemp -= padding;
+    maxTemp += padding;
 
     float range = maxTemp - minTemp;
-    int width = 700;
-    int height = 240;
-    float xStep = float(width) / (points - 1);
+    int width = 760;
+    int height = 280;
+    int marginLeft = 52;
+    int marginRight = 12;
+    int marginTop = 12;
+    int marginBottom = 28;
+    int plotWidth = width - marginLeft - marginRight;
+    int plotHeight = height - marginTop - marginBottom;
+    float xStep = float(plotWidth) / (points - 1);
     String path = "";
 
     for (int i = 0; i < points; i++) {
       float temp = temperatureManagerPtr->getHistoryTempAtOffset(i, 86400);
-      float x = i * xStep;
-      float y = height - ((temp - minTemp) / range) * (height - 20) - 10;
+      float x = marginLeft + i * xStep;
+      float y = marginTop + plotHeight - ((temp - minTemp) / range) * plotHeight;
       if (i == 0) {
         path += "M" + String(x, 1) + "," + String(y, 1);
       } else {
@@ -59,11 +67,28 @@ static String generateDashboardHtml() {
     }
 
     html += "<svg width='100%' viewBox='0 0 " + String(width) + " " + String(height) + "' style='border:1px solid #ccc;border-radius:8px;background:#f8fbff;'>";
-    html += "<polyline fill='none' stroke='#2196f3' stroke-width='2' points='" + path + "' />";
-    html += "<line x1='0' y1='10' x2='" + String(width) + "' y2='10' stroke='#ddd' stroke-width='1'/>";
-    html += "<line x1='0' y1='" + String(height - 10) + "' x2='" + String(width) + "' y2='" + String(height - 10) + "' stroke='#ddd' stroke-width='1'/>";
+    for (int i = 0; i <= 4; i++) {
+      float y = marginTop + (plotHeight * i / 4.0);
+      float labelTemp = maxTemp - (range * i / 4.0);
+      html += "<line x1='" + String(marginLeft) + "' y1='" + String(y, 1) + "' x2='" + String(width - marginRight) + "' y2='" + String(y, 1) + "' stroke='#d8e2ea' stroke-width='1'/>";
+      html += "<text x='" + String(marginLeft - 6) + "' y='" + String(y + 4, 1) + "' text-anchor='end' font-size='12' fill='#456'>" + String(labelTemp, 1) + "&deg;C</text>";
+    }
+    html += "<path d='" + path + "' fill='none' stroke='#2196f3' stroke-width='2.5' stroke-linejoin='round' stroke-linecap='round'/>";
+    int markerStep = points > 24 ? (points + 23) / 24 : 1;
+    for (int i = 0; i < points; i += markerStep) {
+      float temp = temperatureManagerPtr->getHistoryTempAtOffset(i, 86400);
+      float x = marginLeft + i * xStep;
+      float y = marginTop + plotHeight - ((temp - minTemp) / range) * plotHeight;
+      html += "<circle cx='" + String(x, 1) + "' cy='" + String(y, 1) + "' r='3' fill='#fff' stroke='#1976d2' stroke-width='2'><title>" + String(temp, 1) + " &deg;C</title></circle>";
+    }
+    float lastTemp = temperatureManagerPtr->getHistoryTempAtOffset(points - 1, 86400);
+    float lastX = marginLeft + (points - 1) * xStep;
+    float lastY = marginTop + plotHeight - ((lastTemp - minTemp) / range) * plotHeight;
+    html += "<circle cx='" + String(lastX, 1) + "' cy='" + String(lastY, 1) + "' r='4' fill='#1976d2'><title>Atual: " + String(lastTemp, 1) + " &deg;C</title></circle>";
+    html += "<text x='" + String(marginLeft) + "' y='" + String(height - 8) + "' font-size='12' fill='#456'>In&iacute;cio</text>";
+    html += "<text x='" + String(width - marginRight) + "' y='" + String(height - 8) + "' text-anchor='end' font-size='12' fill='#456'>Agora</text>";
     html += "</svg>";
-    html += "<div class='chart-legend'><span class='chart-label'>Mín: " + String(minTemp, 1) + " °C</span><span class='chart-label'>Máx: " + String(maxTemp, 1) + " °C</span><span class='chart-label'>Pontos: " + String(points) + "</span></div>";
+    html += "<div class='chart-legend'><span class='chart-label'>Mín: " + String(dataMinTemp, 1) + " °C</span><span class='chart-label'>Máx: " + String(dataMaxTemp, 1) + " °C</span><span class='chart-label'>Atual: " + String(lastTemp, 1) + " °C</span><span class='chart-label'>Leituras: " + String(points) + "</span></div>";
   }
 
   html += "</div>";
