@@ -34,7 +34,7 @@ TelegramService::TelegramService(HardwareController& hardwareController,
       otaManager_(otaManager),
       wifiManager_(wifiManager),
       bot_(BOT_TOKEN, client_),
-      alertaEnviado_(false),
+      ultimoAlertaTemperatura_(TemperatureAlertType::None),
       mensagemInicialEnviada_(false),
       solicitacaoAtualizacaoEnviada_(false),
       telegramPendentesLimpos_(false),
@@ -87,16 +87,25 @@ void TelegramService::sendStartupMessage() {
   }
 }
 
-void TelegramService::sendAlert(float temp) {
-  if (!alertaEnviado_ && wifiManager_.isConnected()) {
-    String msg = "🚨 ALERTA AQUÁRIO!\nTemperatura: " + String(temp) + " °C";
-    bot_.sendMessage(CHAT_ID, msg, "");
-    alertaEnviado_ = true;
+void TelegramService::updateTemperatureAlert(TemperatureAlertType alertType, float temp) {
+  if (alertType == ultimoAlertaTemperatura_ || !wifiManager_.isConnected()) {
+    return;
   }
-}
 
-void TelegramService::resetAlertState() {
-  alertaEnviado_ = false;
+  String msg;
+  if (alertType == TemperatureAlertType::High) {
+    msg = "ALERTA AQUARIO!\nTemperatura maxima atingida: " + String(temp, 1) +
+          " C\nLimite maximo: " + String(temperatureManager_.getMaxAlertThreshold(), 1) + " C";
+  } else if (alertType == TemperatureAlertType::Low) {
+    msg = "ALERTA AQUARIO!\nTemperatura minima atingida: " + String(temp, 1) +
+          " C\nLimite minimo: " + String(temperatureManager_.getMinAlertThreshold(), 1) + " C";
+  } else {
+    msg = "Temperatura normalizada: " + String(temp, 1) + " C";
+  }
+
+  if (bot_.sendMessage(CHAT_ID, msg, "")) {
+    ultimoAlertaTemperatura_ = alertType;
+  }
 }
 
 void TelegramService::processMessage(int index) {
@@ -150,13 +159,11 @@ void TelegramService::processCommand(const String& texto, const String& chat_id)
   if (comando == "/temp") {
     bot_.sendMessage(chat_id, "🌡️ Temperatura: " + String(temperatureManager_.getCurrent(), 1) + " °C", "");
   } else if (comando == "/status") {
-    bool alerta = temperatureManager_.getCurrent() > temperatureManager_.getMaxAlertThreshold() ||
-                  temperatureManager_.getCurrent() < temperatureManager_.getMinAlertThreshold();
+    bool alerta = temperatureManager_.getAlertType() != TemperatureAlertType::None;
     String status = alerta ? "🔴 ALERTA" : "🟢 NORMAL";
     bot_.sendMessage(chat_id, "Status: " + status, "");
   } else if (comando == "/led") {
-    bool alerta = temperatureManager_.getCurrent() > temperatureManager_.getMaxAlertThreshold() ||
-                  temperatureManager_.getCurrent() < temperatureManager_.getMinAlertThreshold();
+    bool alerta = temperatureManager_.getAlertType() != TemperatureAlertType::None;
     String status = alerta ? "🔴 Vermelho" : "🟢 Verde";
     bot_.sendMessage(chat_id, "LED ativo: " + status, "");
   } else if (comando.startsWith("/setmax")) {

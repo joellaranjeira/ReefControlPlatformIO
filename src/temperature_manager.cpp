@@ -81,6 +81,22 @@ bool TemperatureManager::isValid() const {
   return historyCount_ > 0;
 }
 
+TemperatureAlertType TemperatureManager::getAlertType() const {
+  if (!isValid()) {
+    return TemperatureAlertType::None;
+  }
+
+  if (currentTemperature_ >= maxAlertTemperature_) {
+    return TemperatureAlertType::High;
+  }
+
+  if (currentTemperature_ <= minAlertTemperature_) {
+    return TemperatureAlertType::Low;
+  }
+
+  return TemperatureAlertType::None;
+}
+
 float TemperatureManager::getMaxTemp(unsigned long periodSeconds) const {
   unsigned long now = millis() / 1000;
   float maxTemp = -999;

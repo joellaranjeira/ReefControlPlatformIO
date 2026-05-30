@@ -9,6 +9,7 @@ class HardwareController;
 class TemperatureManager;
 class OtaManager;
 class WiFiManager;
+enum class TemperatureAlertType;
 
 class TelegramService {
 public:
@@ -19,8 +20,7 @@ public:
 
   void begin();
   void loop();
-  void sendAlert(float temp);
-  void resetAlertState();
+  void updateTemperatureAlert(TemperatureAlertType alertType, float temp);
 
 private:
   HardwareController& hardwareController_;
@@ -29,7 +29,7 @@ private:
   WiFiManager& wifiManager_;
   WiFiClientSecure client_;
   UniversalTelegramBot bot_;
-  bool alertaEnviado_;
+  TemperatureAlertType ultimoAlertaTemperatura_;
   bool mensagemInicialEnviada_;
   bool solicitacaoAtualizacaoEnviada_;
   bool telegramPendentesLimpos_;

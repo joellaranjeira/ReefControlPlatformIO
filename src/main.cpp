@@ -29,14 +29,11 @@ void loop() {
   temperatureManager.update();
 
   float currentTemp = temperatureManager.getCurrent();
-  bool alarm = currentTemp > temperatureManager.getMaxAlertThreshold() || currentTemp < temperatureManager.getMinAlertThreshold();
+  TemperatureAlertType alertType = temperatureManager.getAlertType();
+  bool alarm = alertType != TemperatureAlertType::None;
   hardwareController.update(alarm);
 
-  if (alarm) {
-    telegramService.sendAlert(temperatureManager.getCurrent());
-  } else {
-    telegramService.resetAlertState();
-  }
+  telegramService.updateTemperatureAlert(alertType, currentTemp);
 
   wifiManager.loop();
   telegramService.loop();

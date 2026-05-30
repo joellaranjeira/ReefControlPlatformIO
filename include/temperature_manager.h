@@ -3,6 +3,12 @@
 #include "config.h"
 #include <Arduino.h>
 
+enum class TemperatureAlertType {
+  None,
+  Low,
+  High
+};
+
 class TemperatureManager {
 public:
   TemperatureManager();
@@ -14,6 +20,7 @@ public:
   int getRecentHistoryCount(unsigned long periodSeconds) const;
   float getHistoryTempAtOffset(int offsetFromOldest, unsigned long periodSeconds) const;
   bool isValid() const;
+  TemperatureAlertType getAlertType() const;
 
   float getMaxAlertThreshold() const;
   float getMinAlertThreshold() const;
