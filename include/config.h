@@ -3,7 +3,7 @@
 #include "secrets.h"
 #include <Arduino.h>
 
-#define FW_VERSION "1.2.0"
+#define FW_VERSION "1.2.2"
 #define MAX_HISTORY 720
 
 #define BOT_TOKEN SECRET_BOT_TOKEN
@@ -22,6 +22,7 @@ const unsigned long OTA_CHECK_INTERVAL_MS = 3600000;
 const unsigned long WIFI_RECONNECT_INTERVAL_MS = 30000;
 const unsigned long BOOT_SAFE_RESTART_MS = 10000;
 const float TEMPERATURE_ALERT_THRESHOLD = 28.0;
+const float TEMPERATURE_ALERT_MIN_THRESHOLD = 24.0;
 
-const char* GITHUB_VERSION_URL = "https://raw.githubusercontent.com/joellaranjeira/ReefControlPlatformIO/main/version.txt";
-const char* GITHUB_FIRMWARE_URL = "https://raw.githubusercontent.com/joellaranjeira/ReefControlPlatformIO/main/firmware.bin";
+extern const char* GITHUB_VERSION_URL;
+extern const char* GITHUB_FIRMWARE_URL;

@@ -6,11 +6,37 @@ static OneWire oneWire(ONE_WIRE_BUS);
 static DallasTemperature sensors(&oneWire);
 
 TemperatureManager::TemperatureManager()
-    : currentTemperature_(0.0), historyIndex_(0), historyCount_(0), previousUpdateMs_(0) {
+    : currentTemperature_(0.0), historyIndex_(0), historyCount_(0), previousUpdateMs_(0),
+      maxAlertTemperature_(TEMPERATURE_ALERT_THRESHOLD),
+      minAlertTemperature_(TEMPERATURE_ALERT_MIN_THRESHOLD) {
   for (int i = 0; i < MAX_HISTORY; i++) {
     historyTemp_[i] = 0.0;
     historyTime_[i] = 0;
   }
+}
+
+float TemperatureManager::getMaxAlertThreshold() const {
+  return maxAlertTemperature_;
+}
+
+float TemperatureManager::getMinAlertThreshold() const {
+  return minAlertTemperature_;
+}
+
+bool TemperatureManager::setMaxAlertThreshold(float value) {
+  if (value <= minAlertTemperature_ + 0.1 || value < -50.0 || value > 100.0) {
+    return false;
+  }
+  maxAlertTemperature_ = value;
+  return true;
+}
+
+bool TemperatureManager::setMinAlertThreshold(float value) {
+  if (value >= maxAlertTemperature_ - 0.1 || value < -50.0 || value > 100.0) {
+    return false;
+  }
+  minAlertTemperature_ = value;
+  return true;
 }
 
 void TemperatureManager::begin() {

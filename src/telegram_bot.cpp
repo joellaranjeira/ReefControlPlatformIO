@@ -6,6 +6,25 @@
 #include "wifi_manager.h"
 #include <WiFi.h>
 
+static bool isValidTemperatureString(const String& text) {
+  bool hasDigit = false;
+  for (unsigned int i = 0; i < text.length(); i++) {
+    char c = text[i];
+    if (c == ' ' || c == '\t') {
+      continue;
+    }
+    if (c == '+' || c == '-' || c == '.') {
+      continue;
+    }
+    if (c >= '0' && c <= '9') {
+      hasDigit = true;
+      continue;
+    }
+    return false;
+  }
+  return hasDigit;
+}
+
 TelegramService::TelegramService(HardwareController& hardwareController,
                                  TemperatureManager& temperatureManager,
                                  OtaManager& otaManager,
@@ -123,15 +142,60 @@ void TelegramService::handleCallbackQuery(const String& callbackData,
 }
 
 void TelegramService::processCommand(const String& texto, const String& chat_id) {
-  if (texto == "/temp") {
-    bot_.sendMessage(chat_id, "🌡️ Temperatura: " + String(temperatureManager_.getCurrent()) + " °C", "");
-  } else if (texto == "/status") {
-    String status = (temperatureManager_.getCurrent() > TEMPERATURE_ALERT_THRESHOLD) ? "🔴 ALERTA" : "🟢 NORMAL";
+  String trimmed = texto;
+  trimmed.trim();
+  String comando = trimmed;
+  comando.toLowerCase();
+
+  if (comando == "/temp") {
+    bot_.sendMessage(chat_id, "🌡️ Temperatura: " + String(temperatureManager_.getCurrent(), 1) + " °C", "");
+  } else if (comando == "/status") {
+    bool alerta = temperatureManager_.getCurrent() > temperatureManager_.getMaxAlertThreshold() ||
+                  temperatureManager_.getCurrent() < temperatureManager_.getMinAlertThreshold();
+    String status = alerta ? "🔴 ALERTA" : "🟢 NORMAL";
     bot_.sendMessage(chat_id, "Status: " + status, "");
-  } else if (texto == "/led") {
-    String status = (temperatureManager_.getCurrent() > TEMPERATURE_ALERT_THRESHOLD) ? "🔴 Vermelho" : "🟢 Verde";
+  } else if (comando == "/led") {
+    bool alerta = temperatureManager_.getCurrent() > temperatureManager_.getMaxAlertThreshold() ||
+                  temperatureManager_.getCurrent() < temperatureManager_.getMinAlertThreshold();
+    String status = alerta ? "🔴 Vermelho" : "🟢 Verde";
     bot_.sendMessage(chat_id, "LED ativo: " + status, "");
-  } else if (texto == "/buzzer on") {
+  } else if (comando.startsWith("/setmax")) {
+    String valor = trimmed.substring(7);
+    valor.trim();
+    valor.replace(',', '.');
+    if (valor.length() == 0 || !isValidTemperatureString(valor)) {
+      bot_.sendMessage(chat_id, "Use /setmax <temperatura em °C> ex: /setmax 28.5", "");
+    } else {
+      float threshold = valor.toFloat();
+      if (temperatureManager_.setMaxAlertThreshold(threshold)) {
+        bot_.sendMessage(chat_id, "✅ Limite máximo de alerta definido para " + String(threshold, 1) + " °C", "");
+      } else {
+        bot_.sendMessage(chat_id, "❌ Valor inválido. O limite máximo precisa ser maior que o limite mínimo atual (" +
+                         String(temperatureManager_.getMinAlertThreshold(), 1) + " °C).", "");
+      }
+    }
+  } else if (comando.startsWith("/setmin")) {
+    String valor = trimmed.substring(7);
+    valor.trim();
+    valor.replace(',', '.');
+    if (valor.length() == 0 || !isValidTemperatureString(valor)) {
+      bot_.sendMessage(chat_id, "Use /setmin <temperatura em °C> ex: /setmin 24.0", "");
+    } else {
+      float threshold = valor.toFloat();
+      if (temperatureManager_.setMinAlertThreshold(threshold)) {
+        bot_.sendMessage(chat_id, "✅ Limite mínimo de alerta definido para " + String(threshold, 1) + " °C", "");
+      } else {
+        bot_.sendMessage(chat_id, "❌ Valor inválido. O limite mínimo precisa ser menor que o limite máximo atual (" +
+                         String(temperatureManager_.getMaxAlertThreshold(), 1) + " °C).", "");
+      }
+    }
+  } else if (comando == "/limits" || comando == "/limites") {
+    String msg = "⚙️ Limites de alerta atualizados:\n";
+    msg += "Máximo: " + String(temperatureManager_.getMaxAlertThreshold(), 1) + " °C\n";
+    msg += "Mínimo: " + String(temperatureManager_.getMinAlertThreshold(), 1) + " °C\n";
+    msg += "Temperatura atual: " + String(temperatureManager_.getCurrent(), 1) + " °C";
+    bot_.sendMessage(chat_id, msg, "");
+  } else if (comando == "/buzzer on") {
     hardwareController_.setManualBuzzer(true, true);
     bot_.sendMessage(chat_id, "🔔 Buzzer ligado manualmente", "");
   } else if (texto == "/buzzer off") {
@@ -218,6 +282,9 @@ void TelegramService::processCommand(const String& texto, const String& chat_id)
 
     String help4 = "⚙️ *Sistema:*\n";
     help4 += "/restart - Reiniciar ESP32\n";
+    help4 += "/setmax <valor> - Definir limite máximo de alerta\n";
+    help4 += "/setmin <valor> - Definir limite mínimo de alerta\n";
+    help4 += "/limits - Ver limites atuais\n";
     help4 += "/help - Mostrar esta ajuda\n";
     bot_.sendMessage(chat_id, help4, "Markdown");
   }

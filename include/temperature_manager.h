@@ -15,6 +15,11 @@ public:
   float getHistoryTempAtOffset(int offsetFromOldest, unsigned long periodSeconds) const;
   bool isValid() const;
 
+  float getMaxAlertThreshold() const;
+  float getMinAlertThreshold() const;
+  bool setMaxAlertThreshold(float value);
+  bool setMinAlertThreshold(float value);
+
 private:
   float currentTemperature_;
   float historyTemp_[MAX_HISTORY];
@@ -22,5 +27,7 @@ private:
   int historyIndex_;
   int historyCount_;
   unsigned long previousUpdateMs_;
+  float maxAlertTemperature_;
+  float minAlertTemperature_;
   void updateHistory(float temp);
 };

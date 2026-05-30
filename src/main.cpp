@@ -28,7 +28,8 @@ void setup() {
 void loop() {
   temperatureManager.update();
 
-  bool alarm = temperatureManager.getCurrent() > TEMPERATURE_ALERT_THRESHOLD;
+  float currentTemp = temperatureManager.getCurrent();
+  bool alarm = currentTemp > temperatureManager.getMaxAlertThreshold() || currentTemp < temperatureManager.getMinAlertThreshold();
   hardwareController.update(alarm);
 
   if (alarm) {
