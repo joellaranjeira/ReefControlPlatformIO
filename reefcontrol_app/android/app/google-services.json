@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "625804821731",
+    "project_id": "reefcontrol-platform",
+    "storage_bucket": "reefcontrol-platform.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:625804821731:android:abbf45978d2d6680c131d6",
+        "android_client_info": {
+          "package_name": "br.com.meuperim.reefcontrol"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCSoYAqSRLyhi5c4N4Znn9daKfrtMJPbLo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
